@@ -116,8 +116,15 @@ void loop()
 
   if ((!status) && (NewDataReady != 0)) {
     status = sensor_vl53l7cx_top.vl53l7cx_get_ranging_data(&Results);
-    print_result(&Results);
+    //print_result(&Results);
   }
+
+  for (uint8_t z = 0; z < res; z++) {
+    const uint16_t d = (uint16_t)Results.distance_mm[(VL53L7CX_NB_TARGET_PER_ZONE * z) + 0];
+    Serial.print(d);
+    Serial.print(",");
+  }
+  Serial.println();
 
   if (Serial.available()>0)
   {
