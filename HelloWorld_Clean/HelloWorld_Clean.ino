@@ -100,8 +100,11 @@ void setup()
 
   sensor_vl53l7cx_top.init_sensor();
 
+  toggle_resolution();
+
   // Start Measurements
   sensor_vl53l7cx_top.vl53l7cx_start_ranging();
+
 }
 
 void loop()
@@ -119,18 +122,19 @@ void loop()
     //print_result(&Results);
   }
 
+  uint8_t checksum = 0;
   for (uint8_t z = 0; z < res; z++) {
-    const uint16_t d = (uint16_t)Results.distance_mm[(VL53L7CX_NB_TARGET_PER_ZONE * z) + 0];
-    Serial.print(d);
-    Serial.print(",");
-  }
+    uint8_t* ptr = (uint8_t*)&Results.distance_mm[(VL53L7CX_NB_TARGET_PER_ZONE * z) + 0];
+
+    Serial.write(ptr, 2);
+    }
   Serial.println();
 
   if (Serial.available()>0)
   {
     handle_cmd(Serial.read());
   }
-  delay(1000);
+  delay(100);
 }
 
 void print_result(VL53L7CX_ResultsData *Result)
