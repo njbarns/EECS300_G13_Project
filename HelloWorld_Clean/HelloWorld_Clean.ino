@@ -114,6 +114,9 @@ void loop()
   VL53L7CX_ResultsData Results;
   uint8_t NewDataReady = 0;
   uint8_t status;
+  uint8_t* ptr;
+  uint16_t maxVal = 2500;
+  
 
   do {
     status = sensor_vl53l7cx_top.vl53l7cx_check_data_ready(&NewDataReady);
@@ -127,7 +130,12 @@ void loop()
   uint8_t checksum = 0;
   Serial.write(0xAA);
   for (uint8_t z = 0; z < res; z++) {
-    uint8_t* ptr = (uint8_t*)&Results.distance_mm[(VL53L7CX_NB_TARGET_PER_ZONE * z) + 0];
+    if (Results.nb_target_detected[z]>0) {
+      ptr = (uint8_t*)&Results.distance_mm[(VL53L7CX_NB_TARGET_PER_ZONE * z) + 0];
+    }
+    else {
+      ptr = (uint8_t*)&maxVal;
+    }
 
     Serial.write(ptr, 2);
     checksum ^= ptr[0];
@@ -139,7 +147,7 @@ void loop()
   {
     handle_cmd(Serial.read());
   }*/
-  //delay(10);
+  //delay(1000);
 }
 
 void print_result(VL53L7CX_ResultsData *Result)

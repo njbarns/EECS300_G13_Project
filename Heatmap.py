@@ -50,7 +50,8 @@ while True:
         if checksum != received_checksum:
             print("Checksum mismatch")
             continue
-
+        
+        
         # Convert to 8x8 array
         values = struct.unpack('<' + 'H'*NUM_VALUES, data)
         #print(values)
@@ -58,6 +59,6 @@ while True:
         #frame = np.flipud(frame)  # optional: match sensor orientation
 
         # Update heatmap
-        heatmap.set_data(frame)
+        heatmap.set_array(frame)
         fig.canvas.draw_idle()
         fig.canvas.flush_events()
