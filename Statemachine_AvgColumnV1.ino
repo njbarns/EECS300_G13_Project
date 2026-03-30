@@ -21,8 +21,8 @@
 
 
 int counter = 0;
-uint16_t Lthreshold = ;
-uint16_t Hthreshold = ;
+uint16_t Lthreshold = 200;
+uint16_t Hthreshold = 1400;
 
 class StateMachine {
 public:
@@ -32,7 +32,8 @@ public:
         PossibleEntryStarted,
         EntryThroughDoorway,
         PossibleExitStarted,
-        ExitThroughDoorway
+        ExitThroughDoorway,
+        Clear
     };
 
     enum class Event {
@@ -49,78 +50,113 @@ public:
     void handleEvent(Event event) {
         switch (currentState) {
             case State::Init:
-                transitionTo(State::Waiting);
+                transitionTo(State::Idle);
                 break;
 
-            case State::Waiting:
-                if (event == Event::TopDetect) {
-                    transitionTo(State::Top);
+            case State::Idle:
+                if (event == Event::OutsideO) {
+                    transitionTo(State::PossibleEntryStarted);
                 } 
-                else if (event == Event::BotDetect){
-                    transitionTo(State::Bot);
+                else if (event == Event::InsideO){
+                    transitionTo(State::PossibleExitStarted);
                 }
 
                 else {
-                    transitionTo(State::Waiting);
+                    transitionTo(State::Idle);
                 }
 
                 break;
 
-            case State::Top:
+            case State::PossibleEntryStarted:
                 if (event == Event::Clear) {
-                    transitionTo(State::Waiting);
+                    transitionTo(State::Idle);
                 }
-                else if (event == Event::Leave){
-                    transitionTo(State::Minus);
+                else if (event == Event::MiddleA){
+                    transitionTo(State::EntryThroughDoorway);
                 }
                 else {
-                    transitionTo(State::Top);
+                    transitionTo(State::PossibleEntryStarted); //scary
                 }
 
                 break;
 
-            case State::Bot:
-                if (event == Event::Clear) {
-                    transitionTo(State::Waiting);
+            case State::EntryThroughDoorway:
+                if (event == Event::InsideReached) {
+                    counter++;
+                    transitionTo(State::Clear);
                 }
-                else if (event == Event::Enter){
-                    transitionTo(State::Plus);
+                else if (event == Event::Clear){
+                    transitionTo(State::Idle);
                 }
                 else {
-                    transitionTo(State::Bot);
+                    transitionTo(State::EntryThroughDoorway);
                 }
 
                 break;
             
-            case State::Plus:
-                transitionTo(State::Waiting);
+            case State::PossibleExitStarted:
+                if (event == Event::MiddleA) {
+                    transitionTo(State::ExitThroughDoorway);
+                }
+                else if (event == Event::Clear){
+                    transitionTo(State::Idle);
+                }
+                else {
+                    transitionTo(State::PossibleExitStarted);
+                }
+
+                break;
+            
+
+            case State::ExitThroughDoorway:
+                if (event == Event::OutsideReached) {
+                    if (counter > 0) {
+                      counter--;
+                    }
+                    transitionTo(State::Clear);
+                }
+                else if (event == Event::Clear){
+                    transitionTo(State::Idle);
+                }
+                else {
+                    transitionTo(State::ExitThroughDoorway);
+                }
+
                 break;
 
-            case State::Minus:
-                transitionTo(State::Waiting);
+            case State::Clear:
+                if (event == Event::Clear){
+                  transitionTo(State::Idle);
+                }
+                else{
+                  transitionTo(State::Clear);
+                }
                 break;
         }
     }
 
     void update() {
         switch (currentState) {
-            case State::Waiting:
-                onWaiting();
-                break;
-            case State::Top:
-                onTop();
-                break;
-            case State::Bot:
-                onBot();
-                break;
             case State::Init:
                 onInit();
                 break;
-            case State::Minus:
-                onMinus();
+            case State::Idle:
+                onIdle();
                 break;
-            case State::Plus:
-                onPlus();
+            case State::PossibleEntryStarted:
+                onPossibleEntryStarted();
+                break;
+            case State::PossibleExitStarted:
+                onPossibleExitStarted();
+                break;
+            case State::EntryThroughDoorway:
+                onEntryThroughDoorway();
+                break;
+            case State::ExitThroughDoorway:
+                onExitThroughDoorway();
+                break;
+            case State::Clear:
+                onClear();
                 break;
             
         }
@@ -141,53 +177,57 @@ private:
 
     void onEnter(State state) {
         switch (state) {
-            case State::Waiting:
+            case State::Init:
                 //std::cout << "Entering Waiting\n";
                 break;
-            case State::Top:
+            case State::Idle:
                 //std::cout << "Entering Top\n";
                 break;
-            case State::Bot:
+            case State::PossibleEntryStarted:
                 //std::cout << "Entering Bot\n";
                 break;
-            case State::Init:
+            case State::PossibleExitStarted:
                 //std::cout << "Entering Init\n";
                 break;
-            case State::Plus:
+            case State::EntryThroughDoorway:
                 //std::cout << "Entering Plus\n";
                 break;
-            case State::Minus:
+            case State::ExitThroughDoorway:
                 //std::cout << "Entering Minus\n";
+                break;
+            case State::Clear:
                 break;
         }
     }
 
     void onExit(State state) {
         switch (state) {
-            case State::Waiting:
-                //std::cout << "Exiting Waiting\n";
-                break;
-            case State::Top:
-                //std::cout << "Exiting Top\n";
-                break;
-            case State::Bot:
-                //std::cout << "Exiting Bot\n";
-                break;
             case State::Init:
-                //std::cout << "Exiting Init\n";
+                //std::cout << "Entering Waiting\n";
                 break;
-            case State::Plus:
-                //std::cout << "Exiting Plus\n";
+            case State::Idle:
+                //std::cout << "Entering Top\n";
                 break;
-            case State::Minus:
-                //std::cout << "Exiting Minus\n";
+            case State::PossibleEntryStarted:
+                //std::cout << "Entering Bot\n";
+                break;
+            case State::PossibleExitStarted:
+                //std::cout << "Entering Init\n";
+                break;
+            case State::EntryThroughDoorway:
+                //std::cout << "Entering Plus\n";
+                break;
+            case State::ExitThroughDoorway:
+                //std::cout << "Entering Minus\n";
+                break;
+            case State::Clear:
                 break;
         }
     }
 
-    void onWaiting() {
+    void onIdle() {
         //std::cout << "waiting\n";
-        Serial.println("waiting");
+        Serial.println("Idle");
        // std::cout << "counter = ";
         Serial.println("counter=");
        // std::cout << counter;
@@ -195,57 +235,60 @@ private:
        // std::cout << "\n";
     }
 
-    void onTop() {
-        //std::cout << "Top\n";
-        Serial.println("Top");
-    }
-
-    void onBot() {
-       // std::cout << "Bot\n";
-        Serial.println("Bot");
-    }
-
     void onInit() {
-       // std::cout << "Init\n";
+        //std::cout << "Top\n";
         Serial.println("Init");
     }
 
-    void onPlus() {
+    void onPossibleEntryStarted() {
+       // std::cout << "Bot\n";
+        Serial.println("PossibleEntryStarted");
+    }
+
+    void onPossibleExitStarted() {
+       // std::cout << "Init\n";
+        Serial.println("PossibleExitStarted");
+    }
+
+    void onEntryThroughDoorway() {
         //std::cout << "Plus\n";
-        Serial.println("Plus");
-        counter++;
+        Serial.println("EntryThroughDoorway");
     }
     
-    void onMinus() {
+    void onExitThroughDoorway() {
         //std::cout << "Minus\n";
-        Serial.println("Minus");
-        if (counter > 0) {
-            counter--;
-        }
+        Serial.println("ExitThroughDoorway");
+        
 
+    }
+    void onClear(){
+        Serial.println("ClearState");
     }
 };
 
 //We have this function because we need to pass an event into handleEvent(...) in int main, but want the event we pass in to be determined by a function
 std::optional<StateMachine::Event> inputToEvent(bool I, bool O, bool M, StateMachine::State State) {
-    if (I = 0 && M = 0 && O = 0) {
+    if (I == 0 && M == 0 && O == 0) {
         return StateMachine::Event::Clear;
     }
-    if (O = 1 && M = 0 && I = 0 && State != StateMachine::State:ExitThroughDoor) {
-      return StateMachine::Event::OutsideO;
-    }
-    if (I = 1 && M = 0 && O = 0 && (State != StateMachine::State:EnterThroughDoor)) {
-        return StateMachine::Event::InsideO;
-    }
-    if (M = 1) 
-    {return StateMachine::Event::MiddleA;
-    }
-    if (I = 1 && State == EntryThroughDoorway) {
-        return StateMachine::Event::InsideReached; 
-    }
-    if (O = 1 && State == PossibleEntryStarted) {
+    if (O == 1 && State == StateMachine::State::ExitThroughDoorway) {
         return StateMachine::Event::OutsideReached;
     }
+    if (I == 1 && State == StateMachine::State::EntryThroughDoorway) {
+        return StateMachine::Event::InsideReached; 
+    }
+    if (M == 1) 
+    {return StateMachine::Event::MiddleA;
+    }
+    if (O == 1 && M == 0 && I == 0 && State != StateMachine::State::ExitThroughDoorway) {
+      return StateMachine::Event::OutsideO;
+    }
+    if (I == 1 && M == 0 && O == 0 && (State != StateMachine::State::EntryThroughDoorway)) {
+        return StateMachine::Event::InsideO;
+    }
+    
+    
+    
     return std::nullopt;   // no event
 }
 
@@ -276,6 +319,9 @@ bool EnableSignal = false;
 uint8_t res = VL53L7CX_RESOLUTION_4X4;
 char report[256];
 StateMachine sm;
+VL53L7CX_ResultsData Nominal;
+bool firstTime = 1;
+
 void setup() {
   Serial.begin(460800);
   // Enable PWREN pin if present
@@ -305,67 +351,31 @@ void setup() {
 
 }
 
+/*void rotateClockwise(int a[N][N]) {
+    int temp[N][N];
+
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            temp[j][N - 1 - i] = a[i][j];
+        }
+    }
+
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            a[i][j] = temp[i][j];
+        }
+    }
+}
+*/
+
 void loop()
 {
   VL53L7CX_ResultsData Results;
-  VL53L7CX_ResultsData oldResults;
+  
   uint8_t NewDataReady = 0;
   uint8_t status;
   uint8_t* ptr;
   uint16_t maxVal = 2500;
-
-  uint16_t AvgColumn[8];
-  for (uint8_t j = 0; j < 8; j++) {
-    uint8_t total = 0;
-    for (uint8_t i = 0; i < 8; i++) {
-      if (Results.nb_target_detected[i+(j*8)]>0) {
-       total = total + Results.distance_mm[i+(j*8)];
-      }
-    }
-    AvgColumn[7-j] = total / 8;
-  }
-
-
-  uint16_t binary_occupancy[8];
-  for(uint8_t i = 0; i < 8; i++){
-    if (AvgColumn[i] < Hthreshold && AvgColumn[i] > Lthreshold) {
-      binary_occupancy[i] = 1;
-    }
-    else {
-      binary_occupany[i] = 0;
-    }
-  }
-
-  bool Inside = 0;
-  bool Middle = 0;
-  bool Outside = 0;
-  if (binary_occupancy[0] == 1 || binary_occupancy[1] == 1 ||binary_occupancy[2] == 1){
-    Inside = 1
-  }
-  else {
-    Inside = 0;
-  }
-  if (binary_occupancy[3] == 1 || binary_occupancy[4] == 1){
-    Middle = 1
-  }
-  else {
-    Middle = 0;
-  }
-  if (binary_occupancy[5] == 1 || binary_occupancy[6] == 1 ||binary_occupancy[7] == 1){
-    Outside = 1
-  }
-  else {
-    Outside = 0;
-  }
-
-  auto event = inputToEvent(AvgColumn);
-
-  sm.handleEvent(*event);
-
-  sm.update();
-  Serial.print(counter);
-  
-
   do {
     status = sensor_vl53l7cx_top.vl53l7cx_check_data_ready(&NewDataReady);
   } while (!NewDataReady);
@@ -374,6 +384,120 @@ void loop()
     status = sensor_vl53l7cx_top.vl53l7cx_get_ranging_data(&Results);
     //print_result(&Results);
   }
+
+  if(firstTime) {
+      Nominal = Results;
+      firstTime = !firstTime;
+    }
+  //print_result(&Nominal);
+
+  /*
+  uint16_t AvgColumn[8];
+  for (uint8_t j = 0; j < 8; j++) {
+    uint32_t total = 0;
+    for (uint8_t i = 0; i < 8; i++) {
+      if (Results.nb_target_detected[i+(j*8)]>0) {
+       total = total + Results.distance_mm[i+(j*8)];
+      }
+    }
+    AvgColumn[7-j] = total / 8;
+  }
+*/
+  float AvgRow[8];
+
+for (uint8_t i = 0; i < 8; i++) {
+    float total = 0;
+    for (uint8_t j = 0; j < 8; j++) {
+        if (Results.nb_target_detected[i+8*j] > 0) {
+          if (Nominal.nb_target_detected[i+8*j] > 0) {
+            total += abs(float(Results.distance_mm[i+8*j])/float(Nominal.distance_mm[i+8*j]) - 1);
+          }
+          else {
+            total += total += abs(float(Results.distance_mm[i+8*j])/float(maxVal) - 1);
+          }
+        }
+        else {
+          total += 0;
+        }
+    }
+    AvgRow[i] = total / 8;
+}
+
+for (uint8_t i = 0; i<8 ; i++){
+  Serial.print(AvgRow[i]);
+  Serial.println(" ");
+}
+  uint16_t binary_occupancy[8];
+  for(uint8_t i = 0; i < 8; i++){
+    if (AvgRow[i] > 0.3) {
+      binary_occupancy[i] = 1;
+    }
+    else {
+      binary_occupancy[i] = 0;
+    }
+  }
+
+/*
+uint16_t AvgRow[8];
+  for (uint8_t i = 0; i < 8; i++) {
+    uint32_t total = 0;
+    for (uint8_t j = 0; j < 8; j++) {
+        if (Results.nb_target_detected[i+8*j] > 0) {
+            total += Results.distance_mm[i+8*j];
+        }
+        else {
+          total += maxVal;
+        }
+    }
+    AvgRow[i] = total / 8;
+}
+
+for (uint8_t i = 0; i<8 ; i++){
+  Serial.print(AvgRow[i]);
+  Serial.println(" ");
+}
+  uint16_t binary_occupancy[8];
+  for(uint8_t i = 0; i < 8; i++){
+    if (AvgRow[i] < Hthreshold && AvgRow[i] > Lthreshold) {
+      binary_occupancy[i] = 1;
+    }
+    else {
+      binary_occupancy[i] = 0;
+    }
+  }
+  */
+
+  bool Inside = 0;
+  bool Middle = 0;
+  bool Outside = 0;
+  if (binary_occupancy[0] == 1 || binary_occupancy[1] == 1 ||binary_occupancy[2] == 1){
+    Inside = 1;
+  }
+  else {
+    Inside = 0;
+  }
+  if (binary_occupancy[3] == 1 || binary_occupancy[4] == 1){
+    Middle = 1;
+  }
+  else {
+    Middle = 0;
+  }
+  if (binary_occupancy[5] == 1 || binary_occupancy[6] == 1 ||binary_occupancy[7] == 1){
+    Outside = 1;
+  }
+  else {
+    Outside = 0;
+  }
+
+  auto event = inputToEvent(Inside, Outside, Middle, sm.getState());
+
+  sm.handleEvent(*event);
+
+  sm.update();
+  Serial.println(counter);
+  
+
+  
   /*
   uint8_t checksum = 0;
   Serial.write(0xAA);
