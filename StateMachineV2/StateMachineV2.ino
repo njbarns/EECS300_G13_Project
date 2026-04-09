@@ -238,8 +238,15 @@ public:
 				else if (event == Event::e020){
 					transitionTo(State::mXmX);
 				}
-				else {
+				else if (event == Event::e000) {
 					transitionTo(State::Idle);
+				}
+				else if (event == Event::e110) {
+					counterM();
+					transitionTo(State::mXoX);
+				}
+				else {
+					transitionTo(State::iXiX);
 				}
 
 				break;
@@ -258,9 +265,17 @@ public:
 				else if (event == Event::e020){
 					transitionTo(State::mEmE);
 				}
-				else {
+				else if (event == Event::e000) {
 					transitionTo(State::Idle);
 				}
+				else if (event == Event::e110) {
+					counterP();
+					transitionTo(State::iXmE);
+				}
+				else {
+					transitionTo(State::oEoE);
+				}
+
 
 				break;
 
@@ -286,8 +301,11 @@ public:
 					transitionTo(State::mEmX);
 				}
 				// ignoring e010!!!
-				else {
+				else if (event == Event::e000) {
 					transitionTo(State::Idle);
+				}
+				else {
+					transitionTo(State::iXoE);
 				}
 
 				break;
@@ -318,8 +336,11 @@ public:
 				else if (event == Event::e020) {
 					transitionTo(State::mXmX);
 				}
-				else {
+				else if (event == Event::e000) {
 					transitionTo(State::Idle);
+				}
+				else {
+					transitionTo(State::iXmX);
 				}
 
 				break;
@@ -349,8 +370,11 @@ public:
 				else if (event == Event::e020) {
 					transitionTo(State::mEmX);
 				}
-				else {
+				else if (event == Event::e000) {
 					transitionTo(State::Idle);
+				}
+				else {
+					transitionTo(State::iXmE);
 				}
 
 				break;
@@ -380,8 +404,11 @@ public:
 				else if (event == Event::e020) {
 					transitionTo(State::mEmE);
 				}
-				else {
+				else if (event == Event::e000) {
 					transitionTo(State::Idle);
+				}
+				else {
+					transitionTo(State::mEoE);
 				}
 
 				break;
@@ -411,8 +438,11 @@ public:
 				else if (event == Event::e020) {
 					transitionTo(State::mEmX);
 				}
-				else {
+				else if (event == Event::e000) {
 					transitionTo(State::Idle);
+				}
+				else {
+					transitionTo(State::mXoE);
 				}
 
 				break;
@@ -442,6 +472,9 @@ public:
 					counterM();
 					transitionTo(State::mXoE);
 				}
+				else {
+					transitionTo(State::mXmX);
+				}
 
 				break;
 
@@ -468,6 +501,9 @@ public:
 				else if (event == Event::e011) {
 					transitionTo(State::mEoE);
 				}
+				else {
+					transitionTo(State::mEmE);
+				}
 
 				break;
 
@@ -493,6 +529,9 @@ public:
 				else if (event == Event::e011) { // NOTE ambiguity
 					counterM();
 					transitionTo(State::mEoE);
+				}
+				else {
+					transitionTo(State::mEmX);
 				}
 
 				break;
@@ -898,17 +937,17 @@ uint8_t NewDataReady = 0;
   }
 
   // Calculating weights for Inside, Middle, and Outside
-  float AvgInside = (AvgRow[0] + AvgRow[1] + AvgRow[2])/3;
-  float AvgMiddle = (AvgRow[3] + AvgRow[4])/2;
-  float AvgOutside = (AvgRow[5] + AvgRow[6] + AvgRow[7])/3;
+  float AvgInside = (AvgRow[0] + AvgRow[1] + AvgRow[2]);
+  float AvgMiddle = (AvgRow[3] + AvgRow[4])*3/2;
+  float AvgOutside = (AvgRow[5] + AvgRow[6] + AvgRow[7]);
 
   // print statements to validate weight
   Serial.println(AvgInside);
   Serial.println(AvgMiddle);
   Serial.println(AvgOutside);
 
-  uint8_t thresh1 = 1; // customize
-  uint8_t thresh2 = 10; // customize
+  float thresh1 = .6; // customize
+  float thresh2 = 1.7; // customize
   uint8_t binary_occupancy[3];
 
   if (AvgInside > thresh1) {
@@ -919,8 +958,9 @@ uint8_t NewDataReady = 0;
 			binary_occupancy[0] = 1;
 		}
   }
-  else binary_occupancy[0] = 0;
-
+  else {
+		binary_occupancy[0] = 0;
+	}
   if(AvgMiddle > thresh1) {
 		if (AvgMiddle > thresh2) {
 			binary_occupancy[1] = 2;
@@ -929,8 +969,9 @@ uint8_t NewDataReady = 0;
 			binary_occupancy[1] = 1;
 		}
   }
-  else binary_occupancy[1] = 0;
-
+  else {
+		binary_occupancy[1] = 0;
+	}
   if (AvgOutside > thresh1) {
 		if (AvgOutside > thresh2) {
 			binary_occupancy[2] = 2;
@@ -939,13 +980,20 @@ uint8_t NewDataReady = 0;
 			binary_occupancy[2] = 1;
 		}
   }
-  else binary_occupancy[2] = 0;
+  else {
+		binary_occupancy[2] = 0;
+	}
 	// END BINARY LOGIC
+	Serial.println(binary_occupancy[0]);
+		Serial.println(binary_occupancy[1]);
+
+	Serial.println(binary_occupancy[2]);
+
 
 
 	
   // EVENT HANDLER
-  auto event = inputToEvent(binary_occupancy[0], binary_occupancy[1], binary_occupancy[2], sm.getState());
+  auto event = inputToEvent(binary_occupancy[0], binary_occupancy[2], binary_occupancy[1], sm.getState());
 
   sm.handleEvent(*event);
   sm.update();
