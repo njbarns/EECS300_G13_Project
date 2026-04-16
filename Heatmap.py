@@ -18,7 +18,7 @@ buffer = bytearray()
 # ----- Matplotlib Setup -----
 plt.ion()  # interactive mode
 fig, ax = plt.subplots()
-heatmap = ax.imshow(np.zeros((GRID, GRID)), cmap="viridis", vmin=200, vmax=1000)
+heatmap = ax.imshow(np.zeros((GRID, GRID)), cmap="viridis", vmin=300, vmax=1200)
 plt.colorbar(heatmap)
 plt.show()
 

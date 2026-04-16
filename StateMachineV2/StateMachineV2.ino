@@ -184,6 +184,9 @@ public:
 					counterM();
 					transitionTo(State::iXoE);
 				}
+				else if (event == Event::e020) {
+					transitionTo(State::mXmX);
+				}
 				else {
 					transitionTo(State::mX00); //RED ALERT (should not happen)
 				}
@@ -218,6 +221,9 @@ public:
 				else if (event == Event::e101) {
 					counterP();
 					transitionTo(State::iXoE);
+				}
+				else if (event == Event::e020) {
+					transitionTo(State::mEmE);
 				}
 				else {
 					transitionTo(State::mE00); //RED ALERT (should not happen)
@@ -472,6 +478,9 @@ public:
 					counterM();
 					transitionTo(State::mXoE);
 				}
+				else if (event == Event::e010) {
+					transitionTo(State::mX00);
+				}
 				else {
 					transitionTo(State::mXmX);
 				}
@@ -500,6 +509,9 @@ public:
 				}
 				else if (event == Event::e011) {
 					transitionTo(State::mEoE);
+				}
+				else if (event == Event::e010) {
+					transitionTo(State::mE00);
 				}
 				else {
 					transitionTo(State::mEmE);
@@ -858,7 +870,10 @@ uint8_t res = VL53L7CX_RESOLUTION_4X4;
 char report[256];
 StateMachine sm;
 VL53L7CX_ResultsData Nominal;
+VL53L7CX_ResultsData Delay1;
+VL53L7CX_ResultsData Delay2;
 bool firstTime = 1;
+int avgNum = 0;
 
 void setup() {
   Serial.begin(460800);
@@ -911,9 +926,13 @@ uint8_t NewDataReady = 0;
 
   if(firstTime) {
 		Nominal = Results;
+		Delay1 = Results;
+		Delay2 = Results;
 		firstTime = !firstTime;
   }
   //print_result(&Nominal);
+
+
 
   // Calculating averages for rows
   float AvgRow[8];
@@ -921,11 +940,18 @@ uint8_t NewDataReady = 0;
 		float total = 0;
 		for (uint8_t j = 0; j < 8; j++) {
 			if (Results.nb_target_detected[i+8*j] > 0) {
+				float movingAvg = ( float(Results.distance_mm[i+8*j]) + float(Delay1.distance_mm[i+8*j]) + float(Delay2.distance_mm[i+8*j]) ) / 3.0;
 				if (Nominal.nb_target_detected[i+8*j] > 0) {
-					total += abs(float(Results.distance_mm[i+8*j])/float(Nominal.distance_mm[i+8*j]) - 1);
+					
+					if((i+8*j > 16 && i+8*j < 23) || (i+8*j > 24 && i+8*j < 31) || (i+8*j > 32 && i+8*j < 39) || (i+8*j > 40 && i+8*j < 47)) {
+						total += abs(movingAvg/float(Nominal.distance_mm[i+8*j]) - 1.0) * 0.0;
+					}
+					else {
+						total += abs(movingAvg/float(Nominal.distance_mm[i+8*j]) - 1.0);
+					}
 				}
 				else {
-					total += abs(float(Results.distance_mm[i+8*j])/float(maxVal) - 1);
+					total += abs(movingAvg/float(maxVal) - 1.0);
 				}
 			}
 			else {
@@ -934,20 +960,33 @@ uint8_t NewDataReady = 0;
 		}
 		// throw each column into an average
 		AvgRow[i] = total / 8;
+
+		// Calculate new Moving averages
+		Delay2 = Delay1;
+		Delay1 = Results;
   }
 
-  // Calculating weights for Inside, Middle, and Outside
+  /* Calculating weights for Inside, Middle, and Outside
   float AvgInside = (AvgRow[0] + AvgRow[1] + AvgRow[2]);
-  float AvgMiddle = (AvgRow[3] + AvgRow[4])*3/2;
+  float AvgMiddle = (AvgRow[3] + AvgRow[4]);
   float AvgOutside = (AvgRow[5] + AvgRow[6] + AvgRow[7]);
+	*/
+
+	float AvgInside = (AvgRow[0] + AvgRow[1]);
+  float AvgMiddle = (AvgRow[2] + AvgRow[3] + AvgRow[4] + AvgRow[5]);
+  float AvgOutside = (AvgRow[6] + AvgRow[7]);
 
   // print statements to validate weight
   Serial.println(AvgInside);
   Serial.println(AvgMiddle);
   Serial.println(AvgOutside);
 
-  float thresh1 = .6; // customize
-  float thresh2 = 1.7; // customize
+  float thresh1 = .35; // customize LEINweber door, .5-.7
+  float thresh2 = 1.1; // customize leinweber 1.1, prev: 1.6
+	float thresh_middle1 = 0.5; // leinweber .7-1.1
+	float thresh_middle2 = 1.7; // prev 1.9, 1.4 worked w/ braden and I but not brendan, leinweber: 1.15, prev: 1.5
+	// 1.8 for brendan
+	// ??? for two people side by side
   uint8_t binary_occupancy[3];
 
   if (AvgInside > thresh1) {
@@ -961,8 +1000,8 @@ uint8_t NewDataReady = 0;
   else {
 		binary_occupancy[0] = 0;
 	}
-  if(AvgMiddle > thresh1) {
-		if (AvgMiddle > thresh2) {
+  if(AvgMiddle > thresh_middle1) {
+		if (AvgMiddle > thresh_middle2) {
 			binary_occupancy[1] = 2;
 		}
 		else {
