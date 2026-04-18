@@ -19,6 +19,20 @@
 #include <unistd.h>
 #include <optional>
 
+#include "WirelessCommunication.h"
+#include "sharedVariable.h"
+#include "Preferences.h"
+
+#define BUTTON_PIN 0//boot button
+
+uint32_t is_pressed();
+void init_non_vol_storage();
+void update_non_vol_count();
+void update_button_count();
+
+volatile uint32_t count = 0;
+volatile shared_uint32 x;
+Preferences nonVol;//used to store the count in nonvolatile memory
 
 int counter = 0;
 uint16_t Lthreshold = 200;
@@ -126,8 +140,11 @@ public:
 				else if (event == Event::e110) {
 					transitionTo(State::iXmX);
 				}
-				else {
+				else if(event == Event::e000) {
 					transitionTo(State::Idle);
+				}
+				else {
+					transitionTo(State::iX00);
 				}
 
 				break;
@@ -149,8 +166,11 @@ public:
 				else if (event == Event::e011) {
 					transitionTo(State::mEoE);
 				}
-				else {
+				else if(event == Event::e000) {
 					transitionTo(State::Idle);
+				}
+				else {
+					transitionTo(State::oE00);
 				}
 
 				break;
@@ -184,9 +204,11 @@ public:
 					counterM();
 					transitionTo(State::iXoE);
 				}
+				/*
 				else if (event == Event::e020) {
 					transitionTo(State::mXmX);
 				}
+				*/
 				else {
 					transitionTo(State::mX00); //RED ALERT (should not happen)
 				}
@@ -214,10 +236,12 @@ public:
 				else if (event == Event::e002) {
 					transitionTo(State::oEoE);
 				}
+				/*
 				else if (event == Event::e200) {
 					counterP();
 					transitionTo(State::iXiX);
 				}
+				*/
 				else if (event == Event::e101) {
 					counterP();
 					transitionTo(State::iXoE);
@@ -478,9 +502,11 @@ public:
 					counterM();
 					transitionTo(State::mXoE);
 				}
+				/*
 				else if (event == Event::e010) {
 					transitionTo(State::mX00);
 				}
+				*/
 				else {
 					transitionTo(State::mXmX);
 				}
@@ -510,9 +536,11 @@ public:
 				else if (event == Event::e011) {
 					transitionTo(State::mEoE);
 				}
+				/*
 				else if (event == Event::e010) {
 					transitionTo(State::mE00);
 				}
+				*/
 				else {
 					transitionTo(State::mEmE);
 				}
@@ -877,6 +905,9 @@ int avgNum = 0;
 
 void setup() {
   Serial.begin(460800);
+	init_wifi_task();
+  init_non_vol_count();//initializes nonvolatile memory and retrieves latest count
+  INIT_SHARED_VARIABLE(x, count);//init shared variable used to tranfer info to WiFi core
   // Enable PWREN pin if present
   if (PWREN_PIN >= 0) {
 	pinMode(PWREN_PIN, OUTPUT);
@@ -972,7 +1003,7 @@ uint8_t NewDataReady = 0;
   float AvgOutside = (AvgRow[5] + AvgRow[6] + AvgRow[7]);
 	*/
 
-	float AvgInside = (AvgRow[0] + AvgRow[1]);
+  float AvgInside = (AvgRow[0] + AvgRow[1]);
   float AvgMiddle = (AvgRow[2] + AvgRow[3] + AvgRow[4] + AvgRow[5]);
   float AvgOutside = (AvgRow[6] + AvgRow[7]);
 
@@ -981,10 +1012,10 @@ uint8_t NewDataReady = 0;
   Serial.println(AvgMiddle);
   Serial.println(AvgOutside);
 
-  float thresh1 = .35; // customize LEINweber door, .5-.7
+  float thresh1 = .25; // customize LEINweber door, .5-.7
   float thresh2 = 1.1; // customize leinweber 1.1, prev: 1.6
-	float thresh_middle1 = 0.5; // leinweber .7-1.1
-	float thresh_middle2 = 1.7; // prev 1.9, 1.4 worked w/ braden and I but not brendan, leinweber: 1.15, prev: 1.5
+	float thresh_middle1 = 0.3; // leinweber .7-1.1
+	float thresh_middle2 = 1.4; // prev 1.9, 1.4 worked w/ braden and I but not brendan, leinweber: 1.15, prev: 1.5
 	// 1.8 for brendan
 	// ??? for two people side by side
   uint8_t binary_occupancy[3];
@@ -1028,8 +1059,6 @@ uint8_t NewDataReady = 0;
 
 	Serial.println(binary_occupancy[2]);
 
-
-
 	
   // EVENT HANDLER
   auto event = inputToEvent(binary_occupancy[0], binary_occupancy[2], binary_occupancy[1], sm.getState());
@@ -1037,11 +1066,39 @@ uint8_t NewDataReady = 0;
   sm.handleEvent(*event);
   sm.update();
 
-  // needed ? delay
+  // wireless comm
+	count = counter;
+  update_button_count();//update shared variable x (shared with WiFi task)
+  update_non_vol_count();//updates nonvolatile count 
+
   delay(1);
 }
 // -- END MAIN LOOP --
 
+
+// Wireless communication --
+void update_button_count()
+{
+  //minimized time spend holding semaphore
+  LOCK_SHARED_VARIABLE(x);
+  x.value = count;
+  UNLOCK_SHARED_VARIABLE(x);   
+}
+
+
+//initializes nonvolatile memory and retrieves latest count
+void init_non_vol_count()
+{
+  nonVol.begin("nonVolData", false);//Create a “storage space” in the flash memory called "nonVolData" in read/write mode
+  count = 0;//attempts to retrieve "count" from nonVolData, sets it 0 if not found
+}
+
+//updates nonvolatile memery with lates value of count
+void update_non_vol_count()
+{
+  nonVol.putUInt("count", count);//write count to nonvolatile memory
+}
+// End wireless communication --
 
 
 // For swapping resolution
